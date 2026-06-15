@@ -872,6 +872,10 @@
   updateIdleDisplay();
   setRing(1, '#6c63ff');
   renderHistory();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/isometric-trainer/sw.js');
+  }
 </script>
 </body>
 </html>
