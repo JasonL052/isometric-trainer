@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Iso Quad" />
+  <title>Iso Quad Trainer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a22;
+      --accent: #6c63ff;
+      --accent2: #ff6584;
+      --text: #f0f0f5;
+      --muted: #888;
+      --success: #4ade80;
+      --ring-size: 180px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 16px 32px;
+      overflow-x: hidden;
+    }
+
+    /* ── Timer section ── */
+    .timer-section {
+      width: 100%;
+      padding-top: max(env(safe-area-inset-top), 16px);
+      padding-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Ring timer ─────────────────────────────────── */
+    .ring-wrap {
+      position: relative;
+      width: var(--ring-size);
+      height: var(--ring-size);
+      margin-bottom: 14px;
+    }
+
+    .ring-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .ring-bg { fill: none; stroke: var(--surface); stroke-width: 12; }
+    .ring-fg {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 12;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.25s linear, stroke 0.3s;
+    }
+
+    .ring-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+
+    .timer-big {
+      font-size: 2.8rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+
+    .timer-label {
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Phase banner ───────────────────────────────── */
+    .phase-banner {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 3px;
+      text-align: center;
+      min-height: 1.6rem;
+    }
+
+    .phase-sub {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 14px;
+      text-align: center;
+      min-height: 1.1rem;
+    }
+
+    /* ── Set dots ───────────────────────────────────── */
+    .sets-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      max-width: 280px;
+    }
+
+    .set-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 2px solid #333;
+      transition: background 0.3s, border-color 0.3s;
+    }
+
+    .set-dot.done   { background: var(--success); border-color: var(--success); }
+    .set-dot.active { background: var(--accent); border-color: var(--accent); animation: pulse 1s ease-in-out infinite; }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+    }
+
+    /* ── Main buttons ───────────────────────────────── */
+    .btn-row { display: flex; gap: 10px; }
+
+    button {
+      border: none;
+      border-radius: 14px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 13px 24px;
+      transition: opacity 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:active { transform: scale(0.96); opacity: 0.85; }
+
+    .btn-primary { background: var(--accent); color: #fff; min-width: 140px; }
+    .btn-secondary { background: var(--surface); color: var(--text); }
+
+    button:disabled { opacity: 0.35; cursor: default; }
+
+    .skip-hint {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 8px;
+      text-align: center;
+      min-height: 0.9rem;
+    }
+
+    /* ── Settings card ──────────────────────────────── */
+    .settings-card {
+      width: 100%;
+      max-width: 380px;
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 14px 16px 10px;
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      transition: opacity 0.3s;
+    }
+
+    .settings-card.locked { opacity: 0.4; pointer-events: none; }
+
+    .settings-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .settings-card-title {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .lock-badge {
+      font-size: 0.68rem;
+      color: var(--muted);
+      display: none;
+    }
+
+    .settings-card.locked .lock-badge { display: block; }
+
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .setting-label {
+      font-size: 0.88rem;
+      font-weight: 500;
+    }
+
+    /* Segmented control */
+    .seg-control {
+      display: flex;
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .seg-btn {
+      background: transparent;
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .seg-btn:active { transform: scale(0.96); }
+    .seg-btn.active { background: var(--accent); color: #fff; }
+
+    /* Stepper */
+    .stepper {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .step-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 1.2rem;
+      font-weight: 400;
+      padding: 0;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .step-btn:active { transform: scale(0.9); opacity: 0.7; }
+
+    .step-val {
+      font-size: 0.88rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      min-width: 44px;
+      text-align: center;
+      color: var(--text);
+    }
+
+    /* ── History ────────────────────────────────────── */
+    .history-section {
+      width: 100%;
+      max-width: 380px;
+      margin-top: 16px;
+    }
+
+    .history-title {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .history-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .history-item {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .hi-date { color: var(--muted); font-size: 0.78rem; }
+    .hi-sets { font-weight: 700; }
+
+    /* ── Finish screen ──────────────────────────────── */
+    .finish-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      text-align: center;
+    }
+
+    .finish-screen.visible { display: flex; }
+    .finish-emoji { font-size: 4rem; }
+    .finish-title { font-size: 2rem; font-weight: 700; }
+    .finish-sub { font-size: 0.95rem; color: var(--muted); max-width: 260px; }
+
+  </style>
+</head>
+<body>
+
+<!-- Main workout UI -->
+<div id="mainUI">
+
+  <div class="timer-section">
+    <div class="ring-wrap">
+      <svg class="ring-svg" viewBox="0 0 180 180">
+        <circle class="ring-bg" cx="90" cy="90" r="80" />
+        <circle class="ring-fg" id="ringFg" cx="90" cy="90" r="80" />
+      </svg>
+      <div class="ring-center">
+        <div class="timer-big" id="timerDisplay">0:45</div>
+        <div class="timer-label" id="timerLabel">HOLD</div>
+      </div>
+    </div>
+
+    <div class="phase-banner" id="phaseBanner">Ready</div>
+    <div class="phase-sub" id="phaseSub"></div>
+
+    <div class="sets-row" id="setsRow"></div>
+
+    <div class="btn-row">
+      <button class="btn-primary" id="startBtn" onclick="handleStart()">Start</button>
+      <button class="btn-secondary" id="resetBtn" onclick="handleRedo()" disabled>Redo</button>
+    </div>
+
+    <div class="skip-hint" id="skipHint"></div>
+  </div>
+
+  <!-- Settings card -->
+  <div class="settings-card" id="settingsCard">
+    <div class="settings-card-header">
+      <span class="settings-card-title">Settings</span>
+      <span class="lock-badge">Locked during workout</span>
+    </div>
+
+    <div class="setting-row">
+      <span class="setting-label">Legs</span>
+      <div class="seg-control">
+        <button class="seg-btn" data-val="single" onclick="setLegs('single')">Single</button>
+        <button class="seg-btn" data-val="both"   onclick="setLegs('both')">Both</button>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <span class="setting-label">Sets</span>
+      <div class="stepper">
+        <button class="step-btn" onclick="stepSets(-1)">−</button>
+        <span class="step-val" id="setsVal">5</span>
+        <button class="step-btn" onclick="stepSets(1)">+</button>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <span class="setting-label">Hold time</span>
+      <div class="stepper">
+        <button class="step-btn" onclick="stepHold(-1)">−</button>
+        <span class="step-val" id="holdVal">45s</span>
+        <button class="step-btn" onclick="stepHold(1)">+</button>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <span class="setting-label">Rest time</span>
+      <div class="stepper">
+        <button class="step-btn" onclick="stepRest(-1)">−</button>
+        <span class="step-val" id="restVal">2:00</span>
+        <button class="step-btn" onclick="stepRest(1)">+</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Finish screen -->
+<div class="finish-screen" id="finishScreen">
+  <div class="finish-emoji">&#127942;</div>
+  <div class="finish-title">Workout Done!</div>
+  <div class="finish-sub" id="finishSub"></div>
+  <button class="btn-primary" onclick="fullReset()">New Session</button>
+</div>
+
+<!-- History -->
+<div class="history-section">
+  <div class="history-title">Recent Sessions</div>
+  <div class="history-list" id="historyList"></div>
+</div>
+
+<script>
+  // ── Config (persisted) ───────────────────────────────
+  const DEFAULTS = { legs: 'single', sets: 5, holdSecs: 45, restSecs: 120 };
+  let cfg = Object.assign({}, DEFAULTS);
+
+  function loadCfg() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('isoCfg') || 'null');
+      if (saved) Object.assign(cfg, saved);
+    } catch(e) {}
+  }
+
+  function saveCfg() {
+    localStorage.setItem('isoCfg', JSON.stringify(cfg));
+  }
+
+  // ── State ─────────────────────────────────────────────
+  // single: idle → holdLeft → readyRight → holdRight → rest → readyNext → holdLeft → …
+  // both:   idle → holdBoth → rest → holdBoth → …
+  let phase        = 'idle';
+  let currentSet   = 0;
+  let timeLeft     = 0;
+  let timerId      = null;
+  let notifTimer   = null;
+  let sessionStart = null;
+  let wakeLock     = null;
+
+  // ── DOM refs ──────────────────────────────────────────
+  const timerDisplay  = document.getElementById('timerDisplay');
+  const timerLabel    = document.getElementById('timerLabel');
+  const phaseBanner   = document.getElementById('phaseBanner');
+  const phaseSub      = document.getElementById('phaseSub');
+  const startBtn      = document.getElementById('startBtn');
+  const resetBtn      = document.getElementById('resetBtn');
+  const skipHint      = document.getElementById('skipHint');
+  const ringFg        = document.getElementById('ringFg');
+  const mainUI        = document.getElementById('mainUI');
+  const finishScreen  = document.getElementById('finishScreen');
+  const finishSub     = document.getElementById('finishSub');
+  const historyList   = document.getElementById('historyList');
+  const settingsCard  = document.getElementById('settingsCard');
+
+  const CIRC = 2 * Math.PI * 80;
+  ringFg.style.strokeDasharray  = CIRC;
+  ringFg.style.strokeDashoffset = 0;
+
+  // ── Feedback (vibration only) ─────────────────────────
+  function vibrate(...pat) {
+    try { navigator.vibrate && navigator.vibrate(pat); } catch(e) {}
+  }
+
+  // ── Wake Lock ─────────────────────────────────────────
+  async function acquireWakeLock() {
+    try {
+      if ('wakeLock' in navigator && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } catch(e) {}
+  }
+
+  function releaseWakeLock() {
+    if (wakeLock) { wakeLock.release(); wakeLock = null; }
+  }
+
+  // iOS releases the lock whenever the app is backgrounded; re-acquire on return
+  document.addEventListener('visibilitychange', () => {
+    const activePhases = ['holdLeft','holdRight','holdBoth','rest','readyRight','readyNext'];
+    if (!document.hidden && activePhases.includes(phase)) acquireWakeLock();
+    if (!document.hidden && (phase === 'readyNext' || (phase === 'rest' && timeLeft <= 0))) {
+      vibrate(200, 60, 200);
+    }
+  });
+
+  // ── Notifications ─────────────────────────────────────
+  async function requestNotifPermission() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+  }
+
+  function scheduleRestNotif(delaySecs, nextSetNum) {
+    cancelRestNotif();
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    notifTimer = setTimeout(() => {
+      notifTimer = null;
+      if (document.hidden) {
+        const n = new Notification('Rest over — time to go!', {
+          body: `Set ${nextSetNum} is ready. Tap to return.`,
+          tag:  'iso-rest',
+          requireInteraction: true,
+        });
+        n.addEventListener('click', () => { window.focus(); n.close(); });
+      }
+    }, delaySecs * 1000);
+  }
+
+  function cancelRestNotif() {
+    if (notifTimer) { clearTimeout(notifTimer); notifTimer = null; }
+  }
+
+
+  // ── Ring ─────────────────────────────────────────────
+  function setRing(ratio, color) {
+    ringFg.style.strokeDashoffset = CIRC * (1 - Math.max(0, Math.min(1, ratio)));
+    ringFg.style.stroke = color;
+  }
+
+  // ── Format ───────────────────────────────────────────
+  function fmt(secs) {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  // ── Dots ─────────────────────────────────────────────
+  function renderDots() {
+    const row = document.getElementById('setsRow');
+    row.innerHTML = '';
+    for (let i = 0; i < cfg.sets; i++) {
+      const d = document.createElement('div');
+      d.className = 'set-dot'; d.id = 'dot' + i;
+      row.appendChild(d);
+    }
+  }
+
+  function updateDots() {
+    const activePhases = ['holdLeft','holdRight','holdBoth','rest','readyRight','readyNext'];
+    for (let i = 0; i < cfg.sets; i++) {
+      const dot = document.getElementById('dot' + i);
+      if (!dot) continue;
+      dot.className = 'set-dot';
+      if (i < currentSet) dot.classList.add('done');
+      else if (i === currentSet && activePhases.includes(phase)) dot.classList.add('active');
+    }
+  }
+
+  // ── Settings UI ───────────────────────────────────────
+  function updateSettingsUI() {
+    document.querySelectorAll('.seg-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.val === cfg.legs);
+    });
+    document.getElementById('setsVal').textContent = cfg.sets;
+    document.getElementById('holdVal').textContent = cfg.holdSecs + 's';
+    document.getElementById('restVal').textContent = fmt(cfg.restSecs);
+  }
+
+  function updateIdleDisplay() {
+    if (phase !== 'idle') return;
+    timerDisplay.textContent = fmt(cfg.holdSecs);
+    const legsText = cfg.legs === 'single' ? 'each leg' : 'both legs simultaneously';
+    phaseSub.textContent = `${cfg.sets} sets · ${cfg.holdSecs}s ${legsText} · ${fmt(cfg.restSecs)} rest`;
+  }
+
+  // Lock during hold phases; unlock during rest/readyNext/idle
+  function lockSettings()   { settingsCard.classList.add('locked'); }
+  function unlockSettings() { settingsCard.classList.remove('locked'); }
+
+  // ── Settings controls ────────────────────────────────
+  const restPhases = ['rest', 'readyNext'];
+
+  function setLegs(val) {
+    if (phase !== 'idle') return;
+    cfg.legs = val; saveCfg(); updateSettingsUI(); updateIdleDisplay();
+  }
+
+  function stepSets(delta) {
+    if (phase !== 'idle' && !restPhases.includes(phase)) return;
+    cfg.sets = Math.max(1, Math.min(10, cfg.sets + delta));
+    saveCfg(); updateSettingsUI(); renderDots(); updateDots(); updateIdleDisplay();
+  }
+
+  function stepHold(delta) {
+    if (phase !== 'idle' && !restPhases.includes(phase)) return;
+    cfg.holdSecs = Math.max(10, Math.min(120, cfg.holdSecs + delta * 5));
+    saveCfg(); updateSettingsUI(); updateIdleDisplay();
+  }
+
+  function stepRest(delta) {
+    if (phase !== 'idle' && !restPhases.includes(phase)) return;
+    cfg.restSecs = Math.max(30, Math.min(300, cfg.restSecs + delta * 15));
+    saveCfg(); updateSettingsUI(); updateIdleDisplay();
+  }
+
+  // ── Core tick ─────────────────────────────────────────
+  function tick() {
+    const isHold = ['holdLeft','holdRight','holdBoth'].includes(phase);
+
+    if (isHold && timeLeft <= 3 && timeLeft > 0) vibrate(40);
+
+    timerDisplay.textContent = fmt(timeLeft);
+
+    if (['holdLeft', 'holdBoth'].includes(phase)) {
+      setRing(timeLeft / cfg.holdSecs, '#6c63ff');
+    } else if (phase === 'holdRight') {
+      setRing(timeLeft / cfg.holdSecs, '#ff6584');
+    } else if (phase === 'rest') {
+      setRing(timeLeft / cfg.restSecs, '#4ade80');
+    }
+
+    if (timeLeft <= 0) {
+      clearInterval(timerId); timerId = null;
+      advance();
+      return;
+    }
+    timeLeft--;
+  }
+
+  // ── Phase advance ─────────────────────────────────────
+  function advance() {
+    if (phase === 'holdLeft') {
+      vibrate(120, 60, 120);
+      enterReady('readyRight');
+    } else if (phase === 'holdRight') {
+      vibrate(120, 60, 120);
+      markSetDone();
+      currentSet >= cfg.sets ? finishWorkout() : startPhase('rest');
+    } else if (phase === 'holdBoth') {
+      vibrate(120, 60, 120);
+      markSetDone();
+      currentSet >= cfg.sets ? finishWorkout() : startPhase('rest');
+    } else if (phase === 'rest') {
+      cancelRestNotif();
+      vibrate(200, 60, 200);
+      if (cfg.legs === 'single') {
+        enterReady('readyNext');
+      } else {
+        startPhase('holdBoth');
+      }
+    }
+  }
+
+  // ── Ready states (manual-start prompts) ──────────────
+  function enterReady(readyPhase) {
+    phase = readyPhase;
+    updateDots();
+    clearInterval(timerId); timerId = null;
+
+    if (readyPhase === 'readyRight') {
+      lockSettings();
+      timerDisplay.textContent = fmt(cfg.holdSecs);
+      timerLabel.textContent   = 'READY';
+      phaseBanner.textContent  = 'Right Leg';
+      phaseSub.textContent     = `Set ${currentSet + 1} of ${cfg.sets} · Tap Start when ready`;
+      startBtn.textContent     = 'Start Right Leg';
+      skipHint.textContent     = '';
+      setRing(1, '#ff6584');
+    } else {
+      unlockSettings();
+      timerDisplay.textContent = fmt(cfg.holdSecs);
+      timerLabel.textContent   = 'READY';
+      phaseBanner.textContent  = `Set ${currentSet + 1} Ready`;
+      phaseSub.textContent     = `Rest done · Tap Start when you're ready`;
+      startBtn.textContent     = `Start Set ${currentSet + 1}`;
+      skipHint.textContent     = '';
+      setRing(1, '#6c63ff');
+    }
+  }
+
+  function markSetDone() {
+    const dot = document.getElementById('dot' + currentSet);
+    if (dot) dot.className = 'set-dot done';
+    currentSet++;
+  }
+
+  // ── Start a timed phase ───────────────────────────────
+  function startPhase(p) {
+    phase = p;
+    updateDots();
+
+    if (p === 'holdLeft') {
+      lockSettings();
+      timeLeft = cfg.holdSecs;
+      phaseBanner.textContent = 'Left Leg';
+      phaseSub.textContent    = `Set ${currentSet + 1} of ${cfg.sets} · Hold the position`;
+      timerLabel.textContent  = 'HOLD';
+      startBtn.textContent    = 'Pause';
+      skipHint.textContent    = '';
+      vibrate(80);
+    } else if (p === 'holdRight') {
+      lockSettings();
+      timeLeft = cfg.holdSecs;
+      phaseBanner.textContent = 'Right Leg';
+      phaseSub.textContent    = `Set ${currentSet + 1} of ${cfg.sets} · Hold the position`;
+      timerLabel.textContent  = 'HOLD';
+      startBtn.textContent    = 'Pause';
+      skipHint.textContent    = '';
+      vibrate(80);
+    } else if (p === 'holdBoth') {
+      lockSettings();
+      timeLeft = cfg.holdSecs;
+      phaseBanner.textContent = 'Hold';
+      phaseSub.textContent    = `Set ${currentSet + 1} of ${cfg.sets} · Both legs`;
+      timerLabel.textContent  = 'HOLD';
+      startBtn.textContent    = 'Pause';
+      skipHint.textContent    = '';
+      vibrate(80);
+    } else if (p === 'rest') {
+      unlockSettings();
+      timeLeft = cfg.restSecs;
+      phaseBanner.textContent = 'Rest';
+      phaseSub.textContent    = cfg.legs === 'single'
+        ? `Set ${currentSet + 1} of ${cfg.sets} next · ${fmt(cfg.restSecs)} recovery`
+        : `Set ${currentSet + 1} of ${cfg.sets} next · Auto-starts after rest`;
+      timerLabel.textContent  = 'REST';
+      startBtn.textContent    = 'Skip Rest';
+      skipHint.textContent    = 'Settings unlocked · Tap "Skip Rest" when ready';
+      scheduleRestNotif(cfg.restSecs, currentSet + 1);
+    }
+
+    timerDisplay.textContent = fmt(timeLeft);
+    tick();
+    timerId = setInterval(tick, 1000);
+  }
+
+  // ── Finish ────────────────────────────────────────────
+  function finishWorkout() {
+    phase = 'done';
+    cancelRestNotif();
+    releaseWakeLock();
+    vibrate(300, 100, 300, 100, 500);
+    saveSession();
+    const legsText = cfg.legs === 'single' ? 'each leg' : 'both legs';
+    finishSub.textContent = `${cfg.sets} sets · ${cfg.holdSecs}s ${legsText}. Quad strength earned.`;
+    mainUI.style.display = 'none';
+    finishScreen.classList.add('visible');
+    renderHistory();
+  }
+
+  // ── Controls ──────────────────────────────────────────
+  function handleStart() {
+    if (phase === 'idle') {
+      requestNotifPermission();
+      acquireWakeLock();
+      sessionStart = new Date();
+      currentSet   = 0;
+      resetBtn.disabled = false;
+      startPhase(cfg.legs === 'single' ? 'holdLeft' : 'holdBoth');
+
+    } else if (['holdLeft', 'holdRight', 'holdBoth'].includes(phase)) {
+      if (timerId) {
+        clearInterval(timerId); timerId = null;
+        startBtn.textContent = 'Resume';
+        phaseSub.textContent = 'Paused — tap to continue';
+      } else {
+        tick();
+        timerId = setInterval(tick, 1000);
+        startBtn.textContent = 'Pause';
+      }
+
+    } else if (phase === 'readyRight') {
+      startPhase('holdRight');
+
+    } else if (phase === 'readyNext') {
+      startPhase(cfg.legs === 'single' ? 'holdLeft' : 'holdBoth');
+
+    } else if (phase === 'rest') {
+      cancelRestNotif();
+      clearInterval(timerId); timerId = null;
+      vibrate(200, 60, 200);
+      if (cfg.legs === 'single') {
+        enterReady('readyNext');
+      } else {
+        startPhase('holdBoth');
+      }
+    }
+  }
+
+  // ── Redo: restart only the current leg / phase ────────
+  function handleRedo() {
+    cancelRestNotif();
+    clearInterval(timerId); timerId = null;
+
+    if (phase === 'holdLeft' || phase === 'readyRight') {
+      startPhase('holdLeft');
+    } else if (phase === 'holdRight') {
+      startPhase('holdRight');
+    } else if (phase === 'holdBoth') {
+      startPhase('holdBoth');
+    } else if (phase === 'rest' || phase === 'readyNext') {
+      startPhase('rest');
+    }
+  }
+
+  // ── Full reset (New Session) ───────────────────────────
+  function fullReset() {
+    cancelRestNotif();
+    releaseWakeLock();
+    clearInterval(timerId);
+    timerId    = null;
+    phase      = 'idle';
+    currentSet = 0;
+    timeLeft   = 0;
+
+    timerLabel.textContent  = 'HOLD';
+    phaseBanner.textContent = 'Ready';
+    startBtn.textContent    = 'Start';
+    skipHint.textContent    = '';
+    resetBtn.disabled       = true;
+
+    unlockSettings();
+    renderDots();
+    updateIdleDisplay();
+    setRing(1, '#6c63ff');
+
+    mainUI.style.display = '';
+    finishScreen.classList.remove('visible');
+  }
+
+  // ── Session history ───────────────────────────────────
+  function saveSession() {
+    const sessions = JSON.parse(localStorage.getItem('isoSessions') || '[]');
+    sessions.unshift({
+      date:     sessionStart.toISOString(),
+      sets:     cfg.sets,
+      holdSecs: cfg.holdSecs,
+      restSecs: cfg.restSecs,
+      legs:     cfg.legs,
+    });
+    sessions.splice(10);
+    localStorage.setItem('isoSessions', JSON.stringify(sessions));
+  }
+
+  function renderHistory() {
+    const sessions = JSON.parse(localStorage.getItem('isoSessions') || '[]');
+    if (sessions.length === 0) {
+      historyList.innerHTML = '<div style="color:var(--muted);font-size:0.82rem;">No sessions yet.</div>';
+      return;
+    }
+    historyList.innerHTML = sessions.map(s => {
+      const d  = new Date(s.date);
+      const ds = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const ts = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      const legsLabel = s.legs === 'single' ? 'each leg' : 'both legs';
+      return `<div class="history-item">
+        <span>${ds} <span class="hi-date">${ts}</span></span>
+        <span class="hi-sets">${s.sets} sets · ${s.holdSecs}s · ${legsLabel}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Init ──────────────────────────────────────────────
+  loadCfg();
+  renderDots();
+  updateSettingsUI();
+  updateIdleDisplay();
+  setRing(1, '#6c63ff');
+  renderHistory();
+</script>
+</body>
+</html>
