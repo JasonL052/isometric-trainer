@@ -15,7 +15,6 @@ A lightweight PWA for tracking isometric quad exercises on iPhone.
 - Customizable sets, hold time, and rest time
 - Manual start between legs and after rest
 - Settings adjustable during rest
-- Vibration feedback at key moments
 - Screen stay-awake during workout
 - Recent session history
 

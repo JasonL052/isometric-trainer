@@ -432,6 +432,7 @@
   let phase        = 'idle';
   let currentSet   = 0;
   let timeLeft     = 0;
+  let endTime      = null;
   let timerId      = null;
   let notifTimer   = null;
   let sessionStart = null;
@@ -479,6 +480,15 @@
   document.addEventListener('visibilitychange', () => {
     const activePhases = ['holdLeft','holdRight','holdBoth','rest','readyLeft','readyRight','readyBoth','readyNext'];
     if (!document.hidden && activePhases.includes(phase)) acquireWakeLock();
+
+    // Resync timer from real clock when returning from another app
+    const timedPhases = ['holdLeft','holdRight','holdBoth','rest'];
+    if (!document.hidden && timedPhases.includes(phase) && timerId && endTime) {
+      clearInterval(timerId); timerId = null;
+      tick();
+      if (timeLeft > 0) timerId = setInterval(tick, 1000);
+    }
+
     if (!document.hidden && (phase === 'readyNext' || (phase === 'rest' && timeLeft <= 0))) {
       vibrate(200, 60, 200);
     }
@@ -597,8 +607,9 @@
 
   // ── Core tick ─────────────────────────────────────────
   function tick() {
-    const isHold = ['holdLeft','holdRight','holdBoth'].includes(phase);
+    if (endTime) timeLeft = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
 
+    const isHold = ['holdLeft','holdRight','holdBoth'].includes(phase);
     if (isHold && timeLeft <= 3 && timeLeft > 0) vibrate(40);
 
     timerDisplay.textContent = fmt(timeLeft);
@@ -614,9 +625,7 @@
     if (timeLeft <= 0) {
       clearInterval(timerId); timerId = null;
       advance();
-      return;
     }
-    timeLeft--;
   }
 
   // ── Phase advance ─────────────────────────────────────
@@ -728,6 +737,7 @@
       scheduleRestNotif(cfg.restSecs, currentSet + 1);
     }
 
+    endTime = Date.now() + timeLeft * 1000;
     timerDisplay.textContent = fmt(timeLeft);
     tick();
     timerId = setInterval(tick, 1000);
@@ -735,7 +745,8 @@
 
   // ── Finish ────────────────────────────────────────────
   function finishWorkout() {
-    phase = 'done';
+    phase   = 'done';
+    endTime = null;
     cancelRestNotif();
     releaseWakeLock();
     vibrate(300, 100, 300, 100, 500);
@@ -763,6 +774,7 @@
         startBtn.textContent = 'Resume';
         phaseSub.textContent = 'Paused — tap to continue';
       } else {
+        endTime = Date.now() + timeLeft * 1000;
         tick();
         timerId = setInterval(tick, 1000);
         startBtn.textContent = 'Pause';
@@ -814,6 +826,7 @@
     releaseWakeLock();
     clearInterval(timerId);
     timerId    = null;
+    endTime    = null;
     phase      = 'idle';
     currentSet = 0;
     timeLeft   = 0;
