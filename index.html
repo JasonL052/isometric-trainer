@@ -319,6 +319,16 @@
     .finish-title { font-size: 2rem; font-weight: 700; }
     .finish-sub { font-size: 0.95rem; color: var(--muted); max-width: 260px; }
 
+    /* ── Landscape: show only ring + buttons ─────────── */
+    @media (orientation: landscape) {
+      body { padding: 0 16px; }
+      .timer-section { padding-top: 8px; padding-bottom: 8px; }
+      .phase-banner, .phase-sub, .sets-row, .skip-hint { display: none !important; }
+      .settings-card { display: none !important; }
+      .ring-wrap { margin-bottom: 10px; }
+      :root { --ring-size: 130px; }
+    }
+
   </style>
 </head>
 <body>
